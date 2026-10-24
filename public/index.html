@@ -7,8 +7,8 @@
     <meta name="description" content="Campulse helps campus teams explore resource use, data quality, forecasts and operational evidence." />
     <title>Campulse · Resource operations</title>
     <link rel="icon" type="image/svg+xml" href="/campulse-mark.svg?v=20261024-cpulse" />
-    <link rel="stylesheet" href="/styles.css?v=20261024-9" />
-    <script type="module" src="/app.js?v=20261024-10"></script>
+    <link rel="stylesheet" href="/styles.css?v=20261024-action-loop" />
+    <script type="module" src="/app.js?v=20261024-action-loop"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -52,7 +52,7 @@
               <option value="4">4×</option>
               <option value="12">12×</option>
             </select>
-            <button id="reset-demo" class="button button-quiet button-sm" type="button" title="Clear this browser's offline simulation and alert review state">Reset simulation</button>
+            <button id="reset-demo" class="button button-quiet button-sm" type="button" title="Clear this browser's replay, alert review and action rehearsal state">Reset simulation</button>
           </div>
         </header>
 
@@ -251,6 +251,39 @@
             <section class="view" id="view-impact" aria-labelledby="impact-title" hidden>
               <div class="page-heading"><div><div class="eyebrow">IMPACT / INCENTIVE LOOP</div><h1 id="impact-title">Reward fair reductions</h1><p class="page-subtitle">Compare each benchmark building with its own recent baseline, normalized per occupant-day.</p></div><label class="building-picker"><span>Compare resource</span><select id="impact-resource" aria-label="Choose impact resource"><option value="electricity_kwh">Electricity · kWh</option><option value="water_litres">Water · L</option><option value="waste_kg">Waste · kg</option></select></label></div>
               <div id="impact-leaderboard" class="impact-list"></div>
+              <section class="action-loop panel" aria-labelledby="action-loop-title">
+                <div class="action-loop-heading">
+                  <div><div class="eyebrow">CAMPUSE SIGNATURE · ACTION → VERIFY</div><h2 id="action-loop-title">Close the resource loop</h2><p>Turn an evidence-backed signal into a small intervention, then compare the next seven days with the previous seven.</p></div>
+                  <span class="data-chip"><span class="status-dot is-amber"></span> REPLAY REHEARSAL</span>
+                </div>
+                <div class="action-flow" aria-label="Intervention workflow">
+                  <div><span>01</span><strong>Signal</strong><small>Choose an alert and its supporting evidence</small></div><i aria-hidden="true">→</i>
+                  <div><span>02</span><strong>Act</strong><small>Set a bounded target and save a follow-up</small></div><i aria-hidden="true">→</i>
+                  <div><span>03</span><strong>Verify</strong><small>Compare matched seven-day windows</small></div>
+                </div>
+                <div class="action-workspace">
+                  <form id="action-plan-form" class="action-plan-form">
+                    <div class="eyebrow">DESIGN A SMALL TEST</div><h3>Plan an intervention</h3>
+                    <p class="action-form-intro">Estimates use the selected building’s historical benchmark and your target assumption. To verify a plan in this replay, create it at least seven days before the final complete benchmark day.</p>
+                    <div class="action-form-grid">
+                      <label>Benchmark building<select id="action-building" required aria-label="Choose a benchmark building"></select></label>
+                      <label>Intervention<select id="action-type" required aria-label="Choose an intervention"><option value="water-leak">Inspect and repair a suspected water leak</option><option value="energy-schedule">Review after-hours energy schedules</option><option value="organics-capture">Improve wet-waste capture at source</option></select></label>
+                      <label class="action-target-label">Scenario target <span><output id="action-target-output" for="action-target">12%</output></span><input id="action-target" type="range" min="5" max="25" value="12" step="1" aria-label="Assumed resource reduction target" /></label>
+                    </div>
+                    <div id="action-draft-context" class="action-draft-context" hidden></div>
+                    <div class="action-estimate" aria-live="polite">
+                      <div><span>Recent baseline</span><strong id="action-baseline-rate">—</strong><small id="action-baseline-coverage">—</small></div>
+                      <div><span>30-day scenario</span><strong id="action-monthly-estimate">—</strong><small id="action-estimate-method">—</small></div>
+                    </div>
+                    <button class="button button-dark" type="submit">Save rehearsal plan <span aria-hidden="true">→</span></button>
+                  </form>
+                  <section class="action-register" aria-labelledby="action-register-title">
+                    <div class="action-register-heading"><div><div class="eyebrow">LOCAL FOLLOW-UP REGISTER</div><h3 id="action-register-title">Action plans</h3></div><span id="action-plan-count" class="action-count">0</span></div>
+                    <div id="action-plan-list" class="action-plan-list"></div>
+                  </section>
+                </div>
+                <p class="action-loop-caveat"><strong>Honest demo boundary:</strong> targets are user-set scenarios, and the before/after comparison is observational—not proof that an action caused a change. Plans are stored in this browser only. All source readings remain synthetic benchmark replay.</p>
+              </section>
               <div class="content-grid impact-method-grid"><article class="panel"><div class="eyebrow">PROPOSED CREDIT RULE</div><h2>Make the comparison fair</h2><ul class="plain-list"><li>Compare the latest seven complete days with the prior 28 complete days for the same building.</li><li>Divide daily totals by estimated occupant-days; do not reward a quiet building for lower total use alone.</li><li>Use a provisional score of one point per percentage point of reduction, capped at 100, and award zero when use rises.</li><li>Do not issue credits until a phased pilot verifies occupancy and meter quality. Keep personal data out of scoring.</li></ul></article><article class="panel"><div class="eyebrow">MEASURE WHETHER IT WORKS</div><h2>Run a phased comparison</h2><p>Match similar buildings, start credits in one group first, and compare normalized use before and after against a delayed-start group. Adjust for occupancy and academic calendar. Audit meter coverage and unusual reporting before awarding credits.</p><div class="impact-status"><span class="status-dot is-amber"></span> Scores here are illustrative benchmark calculations. No credits are issued.</div></article></div>
             </section>
 

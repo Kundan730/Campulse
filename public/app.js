@@ -3,6 +3,12 @@ const byClass = (name) => document.querySelectorAll(name);
 const numberFormat = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
 const integerFormat = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const HOUR = 60 * 60 * 1000;
+const ACTION_STORAGE_KEY = "campulse-action-plans";
+const ACTION_TYPES = {
+  "water-leak": { label: "Inspect and repair a suspected water leak", resource: "water_litres", resourceLabel: "Water draw", unit: "L", targetLabel: "Assumed reduction", defaultTarget: 12 },
+  "energy-schedule": { label: "Review after-hours energy schedules", resource: "electricity_kwh", resourceLabel: "Electricity", unit: "kWh", targetLabel: "Assumed reduction", defaultTarget: 12 },
+  "organics-capture": { label: "Improve wet-waste capture at source", resource: "landfill_kg", resourceLabel: "Landfill-bound waste", unit: "kg", targetLabel: "Assumed reduction", defaultTarget: 12 },
+};
 
 const app = {
   data: null,
@@ -20,6 +26,8 @@ const app = {
   selectedWasteClass: "all",
   campusResource: "electricity_kwh",
   alerts: [],
+  actionPlans: [],
+  actionDraft: null,
 };
 
 function escapeHtml(value) {
@@ -166,6 +174,68 @@ function diversionPercent(row) {
   const diverted = Number(row?.composted_kg) + Number(row?.recycled_kg);
   const total = diverted + Number(row?.landfill_kg);
   return row && [row.composted_kg, row.recycled_kg, row.landfill_kg].every((value) => value !== null && value !== undefined) && total > 0 ? 100 * diverted / total : null;
+}
+
+function loadActionPlans() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACTION_STORAGE_KEY) || "[]");
+    return Array.isArray(saved) ? saved.filter((item) => item && ACTION_TYPES[item.type] && item.id && item.buildingId) : [];
+  } catch { return []; }
+}
+
+function saveActionPlans() {
+  try {
+    localStorage.setItem(ACTION_STORAGE_KEY, JSON.stringify(app.actionPlans));
+    return true;
+  } catch { return false; }
+}
+
+function shiftDateKey(key, offset) {
+  const [year, month, day] = key.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day + offset));
+  return value.toISOString().slice(0, 10);
+}
+
+function actionRawValue(row, type) {
+  const resource = ACTION_TYPES[type]?.resource;
+  const value = resource === "waste_kg" ? dailyWaste(row) : row?.[resource];
+  return value === null || value === undefined || !Number.isFinite(Number(value)) ? null : Number(value);
+}
+
+function summarizeActionWindow(buildingId, type, dates) {
+  const wanted = new Set(dates);
+  const rows = app.data.daily.filter((row) => row.building_id === buildingId && wanted.has(dateKey(row.date)) && actionRawValue(row, type) !== null && Number(row.occupancy_avg) > 0);
+  const resourceTotal = rows.reduce((sum, row) => sum + actionRawValue(row, type), 0);
+  const occupantDays = rows.reduce((sum, row) => sum + Number(row.occupancy_avg), 0);
+  return {
+    rate: occupantDays > 0 ? resourceTotal / occupantDays : null,
+    occupantDays,
+    validDays: rows.length,
+    expectedDays: dates.length,
+    avgOccupancy: rows.length ? occupantDays / rows.length : null,
+    avgDailyResource: rows.length ? resourceTotal / rows.length : null,
+  };
+}
+
+function actionBaseline(buildingId, type, beforeDate) {
+  const dates = [...new Set(app.data.calendar.map((row) => dateKey(row.date)))].filter((day) => day < beforeDate).sort().slice(-28);
+  return summarizeActionWindow(buildingId, type, dates);
+}
+
+function actionVerification(plan) {
+  if (!plan.startedOn) return { ready: false, reason: "Start this rehearsal to set its follow-up window." };
+  const beforeDays = Array.from({ length: 7 }, (_, index) => shiftDateKey(plan.startedOn, index - 7));
+  const afterDays = Array.from({ length: 7 }, (_, index) => shiftDateKey(plan.startedOn, index + 1));
+  const before = summarizeActionWindow(plan.buildingId, plan.type, beforeDays);
+  const after = summarizeActionWindow(plan.buildingId, plan.type, afterDays);
+  const completeThrough = afterDays.at(-1);
+  const replayComplete = cursorDate() > completeThrough;
+  const ready = replayComplete && before.validDays >= 6 && after.validDays >= 6 && before.rate !== null && before.rate > 0 && after.rate !== null;
+  let reason = "";
+  if (!replayComplete) reason = `Advance replay past ${formatDate(`${completeThrough}T12:00:00`)} to complete the seven-day follow-up.`;
+  else if (before.validDays < 6 || after.validDays < 6) reason = `Insufficient daily coverage: ${before.validDays}/7 before and ${after.validDays}/7 after; at least 6 in each window are needed.`;
+  else if (before.rate === null || before.rate <= 0 || after.rate === null) reason = "The selected resource does not have enough valid occupancy-normalized readings.";
+  return { ready, reason, before, after, completeThrough, changePct: ready ? (after.rate / before.rate - 1) * 100 : null };
 }
 
 function sourceTimestampSort(a, b) {
@@ -810,7 +880,7 @@ function renderAlerts() {
       <div><div class="alert-title-row"><h2>${escapeHtml(alert.title)}</h2><span class="priority-tag">${escapeHtml(alert.severity)}</span><span class="evidence-tag">Rank ${alert.score}/100 · heuristic</span>${done ? `<span class="resolved-tag">${alert.resolved ? "Repair note recorded" : "Reviewed locally"}</span>` : ""}</div>
       <p class="alert-meta">${escapeHtml(formatDate(`${alert.date}T12:00:00`))} · ${escapeHtml(alert.buildingId)} · ${escapeHtml(labelBuilding(alert.buildingId))} · ${escapeHtml(alert.status)}</p>
       <p class="alert-detail">${escapeHtml(alert.summary)}</p>${signalVisual}<p class="alert-detail"><strong>Leading explanation:</strong> ${escapeHtml(alert.cause)}</p>
-      <div class="alert-action"><strong>Recommended check:</strong> ${escapeHtml(alert.action)}</div>
+      <div class="alert-action"><strong>Recommended check:</strong> ${escapeHtml(alert.action)}${alert.severity !== "DATA QUALITY" ? `<br /><button class="alert-action-create" type="button" data-create-action="${escapeHtml(alert.id)}">Turn this into a follow-up plan →</button>` : `<br /><span>Validate the source before planning a resource-reduction action.</span>`}</div>
       <div class="alert-footer"><span>${escapeHtml(alert.evidence)}</span><span>${escapeHtml(alert.caveat)}</span>${alert.note ? `<button class="text-button" type="button" data-building="${escapeHtml(alert.buildingId)}">Open building evidence →</button>` : ""}</div></div>
       <button class="ack-button ${done ? "is-done" : ""}" type="button" data-ack-alert="${escapeHtml(alert.id)}" aria-pressed="${done}">${alert.resolved ? "Repair recorded" : done ? "Reviewed" : "Mark reviewed"}</button>
     </article>`;
@@ -850,6 +920,104 @@ function renderImpact() {
     const note = `${item.recent.count}/7 recent days · ${item.baseline.count}/28 baseline days · ${fmtNumber(item.recent.rate, 3)} ${unit}/occupant-day`;
     return `<div class="impact-row"><span class="impact-rank">${index + 1}</span><div class="impact-building"><strong>${escapeHtml(item.building.building_id)} · ${escapeHtml(item.building.building_name)}</strong><small>${escapeHtml(note)}</small></div><div class="impact-bar-block"><div class="impact-bar-label"><span>Change vs own baseline</span><span>${escapeHtml(changeLabel)}</span></div><div class="impact-bar-track" role="img" aria-label="${escapeHtml(usable ? `${fmtNumber(progress, 1)} percent reduction against baseline` : "Insufficient data")}"><i style="width:${progress}%"></i></div></div><div class="impact-rate"><span>Baseline</span><strong>${fmtNumber(item.baseline.rate, 3)} ${unit}/person-day</strong></div><div class="credit-score"><span>Illustrative credits</span><strong>${item.credits === null ? "—" : item.credits}</strong>${usable && item.change > 0 ? "Use increased" : "No credits issued"}</div></div>`;
   }).join("") || `<div class="empty-card">No complete days are available before this replay time.</div>`;
+  renderActionLoop();
+}
+
+function actionTypeForAlert(alert) {
+  const evidence = `${alert.title} ${alert.action} ${alert.cause}`.toLowerCase();
+  if (/water|leak|flow/.test(evidence)) return "water-leak";
+  if (/waste|food|organic|meal/.test(evidence)) return "organics-capture";
+  return "energy-schedule";
+}
+
+function renderActionPreview() {
+  if (!app.data) return;
+  const buildingId = $("action-building").value;
+  const type = $("action-type").value;
+  const target = Number($("action-target").value);
+  const definition = ACTION_TYPES[type];
+  const baseline = actionBaseline(buildingId, type, cursorDate());
+  const usable = baseline.validDays >= 22 && baseline.rate !== null && baseline.avgDailyResource !== null;
+  $("action-target-output").textContent = `${target}% assumed`;
+  $("action-baseline-rate").textContent = usable ? `${fmtNumber(baseline.rate, 3)} ${definition.unit}/occupant-day` : "Not enough data";
+  $("action-baseline-coverage").textContent = `${baseline.validDays}/${baseline.expectedDays} valid days before ${formatDate(`${cursorDate()}T12:00:00`)} · synthetic benchmark`;
+  $("action-monthly-estimate").textContent = usable ? `${fmtNumber(baseline.avgDailyResource * 30 * target / 100, 0)} ${definition.unit}` : "Unavailable";
+  $("action-estimate-method").textContent = usable ? `${target}% user-set target × 30 days; scenario only` : "Need at least 22 valid baseline days";
+  const context = $("action-draft-context");
+  if (app.actionDraft) {
+    context.hidden = false;
+    context.innerHTML = `<strong>Linked evidence:</strong> ${escapeHtml(app.actionDraft.title)} · ${escapeHtml(app.actionDraft.summary)} <span>Source: synthetic replay. The explanation is a hypothesis.</span>`;
+  } else {
+    context.hidden = true;
+    context.textContent = "";
+  }
+}
+
+function lastCompleteBenchmarkDay() {
+  return [...new Set(app.data.calendar.map((row) => dateKey(row.date)))].sort().at(-1) ?? null;
+}
+
+function actionCanStart(plan) {
+  const lastDay = lastCompleteBenchmarkDay();
+  return Boolean(plan && lastDay && cursorDate() >= plan.createdOn && cursorDate() <= shiftDateKey(lastDay, -7));
+}
+
+function actionStartHint(plan) {
+  const lastDay = lastCompleteBenchmarkDay();
+  if (!lastDay) return "No complete benchmark days are available for follow-up.";
+  const cutoff = shiftDateKey(lastDay, -7);
+  if (cursorDate() < plan.createdOn) return `Return to ${formatDate(`${plan.createdOn}T12:00:00`)} or later before starting this saved plan.`;
+  if (plan.createdOn > cutoff) return `No seven-day follow-up remains after this plan date. Rewind and create a new plan by ${formatDate(`${cutoff}T12:00:00`)}.`;
+  return `Move replay to ${formatDate(`${cutoff}T12:00:00`)} or earlier to leave seven full days for follow-up.`;
+}
+
+function renderActionPlans() {
+  const list = $("action-plan-list");
+  $("action-plan-count").textContent = String(app.actionPlans.length);
+  list.innerHTML = app.actionPlans.length ? [...app.actionPlans].reverse().map((plan) => {
+    const definition = ACTION_TYPES[plan.type];
+    const verified = plan.status === "verified" && plan.verification;
+    let status = plan.status === "started" ? "In progress" : verified ? "Observed" : "Planned";
+    let statusClass = plan.status === "started" ? "is-started" : verified ? "is-verified" : "";
+    let result = "";
+    let actionButton = "";
+    if (verified) {
+      const delta = Number(plan.verification.changePct);
+      const resultText = delta < -0.05 ? `Observed use was ${fmtPercent(Math.abs(delta), 1)} lower` : delta > 0.05 ? `Observed use was ${fmtPercent(delta, 1)} higher` : "Observed use was broadly unchanged";
+      const beforeValue = Number(plan.verification.beforeRate);
+      const afterValue = Number(plan.verification.afterRate);
+      const scale = Math.max(beforeValue, afterValue, 0.001);
+      const beforeWidth = Math.max(2, beforeValue / scale * 100);
+      const afterWidth = Math.max(2, afterValue / scale * 100);
+      const beforeLabel = `${fmtNumber(beforeValue, 3)} ${definition.unit}/occupant-day`;
+      const afterLabel = `${fmtNumber(afterValue, 3)} ${definition.unit}/occupant-day`;
+      result = `<div class="action-plan-result"><strong>${escapeHtml(resultText)}</strong><div class="action-compare" role="img" aria-label="Before ${escapeHtml(beforeLabel)}; after ${escapeHtml(afterLabel)}"><div class="action-compare-row"><span>Before</span><div class="action-compare-track"><i style="width:${beforeWidth}%"></i></div><b>${escapeHtml(beforeLabel)}</b></div><div class="action-compare-row"><span>After</span><div class="action-compare-track"><i class="${delta > 0.05 ? "is-higher" : "is-lower"}" style="width:${afterWidth}%"></i></div><b>${escapeHtml(afterLabel)}</b></div></div><small>${plan.verification.beforeDays}/7 and ${plan.verification.afterDays}/7 valid days · not attributed to the action.</small></div>`;
+    } else if (plan.status === "started") {
+      const verification = actionVerification(plan);
+      const completed = verification.ready;
+      result = `<div class="action-plan-result ${completed ? "" : "is-neutral"}">${escapeHtml(completed ? "Seven-day follow-up is ready for comparison." : verification.reason)}</div>`;
+      actionButton = `<button type="button" data-verify-action="${escapeHtml(plan.id)}" ${completed ? "" : "disabled"}>Compare follow-up</button>`;
+    } else {
+      const canStart = actionCanStart(plan);
+      const help = canStart ? `Replay date ${formatDate(`${cursorDate()}T12:00:00`)} is available for a seven-day follow-up.` : actionStartHint(plan);
+      result = `<div class="action-plan-result is-neutral">Saved ${escapeHtml(formatDate(`${plan.createdOn}T12:00:00`))} · ${escapeHtml(help)}</div>`;
+      actionButton = `<button type="button" data-start-action="${escapeHtml(plan.id)}" ${canStart ? "" : "disabled"}>Start at replay date</button>`;
+    }
+    const estimate = plan.estimatedMonthly !== null && plan.estimatedMonthly !== undefined && Number.isFinite(Number(plan.estimatedMonthly)) ? `${fmtNumber(plan.estimatedMonthly, 0)} ${definition.unit}/30 days` : "estimate unavailable";
+    const link = plan.alertTitle ? `<br />Linked: ${escapeHtml(plan.alertTitle)}` : "";
+    return `<article class="action-plan-card ${verified ? "is-verified" : ""}"><div class="action-plan-top"><strong>${escapeHtml(labelBuilding(plan.buildingId))} · ${escapeHtml(definition.label)}</strong><span class="action-state ${statusClass}">${escapeHtml(status)}</span></div><p class="action-plan-meta">${escapeHtml(definition.resourceLabel)} · ${fmtNumber(plan.targetPct, 0)}% user-set target · ${escapeHtml(estimate)}${link}</p>${result}<div class="action-plan-actions">${actionButton}<button class="action-remove" type="button" data-remove-action="${escapeHtml(plan.id)}" aria-label="Remove follow-up plan">Remove</button></div></article>`;
+  }).join("") : `<div class="empty-card">No follow-ups yet. Turn a ranked alert into a plan, or build a small test here.</div>`;
+}
+
+function renderActionLoop() {
+  const buildingSelect = $("action-building");
+  const existingBuilding = buildingSelect.value;
+  const selectedBuilding = app.actionDraft?.buildingId || existingBuilding || app.selectedBuilding || app.data.buildings[0]?.building_id;
+  buildingSelect.innerHTML = app.data.buildings.map((building) => `<option value="${escapeHtml(building.building_id)}">${escapeHtml(building.building_id)} · ${escapeHtml(building.building_name)} · benchmark</option>`).join("");
+  buildingSelect.value = app.data.buildings.some((building) => building.building_id === selectedBuilding) ? selectedBuilding : app.data.buildings[0]?.building_id;
+  if (app.actionDraft?.actionType) $("action-type").value = app.actionDraft.actionType;
+  renderActionPreview();
+  renderActionPlans();
 }
 
 function renderMethods() {
@@ -925,6 +1093,7 @@ async function loadApp() {
     app.forecast = forecast;
     app.health = health;
     app.demo = demo;
+    app.actionPlans = loadActionPlans();
     app.alerts = buildAlertCandidates();
     app.timeline = [];
     initTimeline();
@@ -955,6 +1124,46 @@ function bindControls() {
     if (target.dataset.campusResource) { app.campusResource = target.dataset.campusResource; renderCampus(); return; }
     if (target.dataset.mapBuilding) { app.selectedBuilding = target.dataset.mapBuilding; renderCampus(); return; }
     if (target.dataset.buildingSelect) { app.selectedBuilding = target.dataset.buildingSelect; renderBuildingDetail(); return; }
+    if (target.dataset.createAction) {
+      const alert = app.alerts.find((item) => item.id === target.dataset.createAction);
+      if (!alert) return;
+      app.actionDraft = { alertId: alert.id, title: alert.title, summary: alert.summary, buildingId: alert.buildingId, actionType: actionTypeForAlert(alert) };
+      app.selectedBuilding = alert.buildingId;
+      setView("impact");
+      requestAnimationFrame(() => $("action-plan-form").scrollIntoView({ block: "center", behavior: "smooth" }));
+      return;
+    }
+    if (target.dataset.startAction) {
+      const plan = app.actionPlans.find((item) => item.id === target.dataset.startAction);
+      if (!plan) return;
+      if (!actionCanStart(plan)) { setToast(actionStartHint(plan), "error"); return; }
+      plan.status = "started";
+      plan.startedOn = cursorDate();
+      plan.startReplayTime = currentCursor();
+      saveActionPlans();
+      renderActionLoop();
+      setToast(`Started the ${labelBuilding(plan.buildingId)} follow-up at the selected replay date.`);
+      return;
+    }
+    if (target.dataset.verifyAction) {
+      const plan = app.actionPlans.find((item) => item.id === target.dataset.verifyAction);
+      if (!plan) return;
+      const result = actionVerification(plan);
+      if (!result.ready) { setToast(result.reason, "error"); return; }
+      plan.status = "verified";
+      plan.verifiedOn = cursorDate();
+      plan.verification = { beforeRate: result.before.rate, afterRate: result.after.rate, beforeDays: result.before.validDays, afterDays: result.after.validDays, changePct: result.changePct };
+      saveActionPlans();
+      renderActionLoop();
+      setToast("Seven-day comparison saved. The observed change is not attributed to the action.");
+      return;
+    }
+    if (target.dataset.removeAction) {
+      app.actionPlans = app.actionPlans.filter((item) => item.id !== target.dataset.removeAction);
+      saveActionPlans();
+      renderActionLoop();
+      return;
+    }
     if (target.dataset.building) {
       app.selectedBuilding = target.dataset.building;
       setView("buildings");
@@ -972,7 +1181,7 @@ function bindControls() {
     if (target.id === "reset-demo") {
       app.playing = false; clearInterval(app.timer); app.timer = null; updatePlayButton();
       const result = await api("/api/demo/reset", { method: "POST", body: "{}" });
-      app.demo = result.state; localStorage.removeItem("campulse-acknowledged-alerts"); updateCursor(app.timeline.length - 1); setToast("Simulation and alert review state reset for this browser."); return;
+      app.demo = result.state; localStorage.removeItem("campulse-acknowledged-alerts"); localStorage.removeItem(ACTION_STORAGE_KEY); app.actionPlans = []; app.actionDraft = null; updateCursor(app.timeline.length - 1); setToast("Simulation, alert review and local action rehearsals reset for this browser."); return;
     }
     if (target.id === "offline-toggle") {
       const isOffline = app.demo.offline.some((row) => row.building_id === app.selectedBuilding);
@@ -1002,6 +1211,35 @@ function bindControls() {
   $("overview-resource").addEventListener("change", () => renderOverview());
   $("building-resource").addEventListener("change", renderBuildingDetail);
   $("impact-resource").addEventListener("change", renderImpact);
+  $("action-building").addEventListener("change", renderActionPreview);
+  $("action-type").addEventListener("change", (event) => {
+    const definition = ACTION_TYPES[event.currentTarget.value];
+    $("action-target").value = String(definition.defaultTarget);
+    renderActionPreview();
+  });
+  $("action-target").addEventListener("input", renderActionPreview);
+  $("action-plan-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const buildingId = $("action-building").value;
+    const type = $("action-type").value;
+    const targetPct = Number($("action-target").value);
+    const baseline = actionBaseline(buildingId, type, cursorDate());
+    const estimatedMonthly = baseline.validDays >= 22 && baseline.avgDailyResource !== null ? baseline.avgDailyResource * 30 * targetPct / 100 : null;
+    const plan = {
+      id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      buildingId, type, targetPct, createdOn: cursorDate(), status: "planned", estimatedMonthly,
+      baselineRate: baseline.validDays >= 22 ? baseline.rate : null,
+      baselineDays: baseline.validDays,
+      alertTitle: app.actionDraft?.title || "",
+      alertSummary: app.actionDraft?.summary || "",
+      alertId: app.actionDraft?.alertId || "",
+    };
+    app.actionPlans.push(plan);
+    app.actionDraft = null;
+    const saved = saveActionPlans();
+    renderActionLoop();
+    setToast(saved ? actionCanStart(plan) ? "Follow-up plan saved locally. Start it at the selected replay date, then advance seven complete days." : `${actionStartHint(plan)} Your plan was saved locally.` : "Plan added for this session, but this browser could not persist it.", saved ? "info" : "error");
+  });
   $("waste-class-filter").addEventListener("change", (event) => { app.selectedWasteClass = event.target.value; renderWaste(); });
   $("waste-test-event").addEventListener("change", renderWastePreview);
   $("classify-form").addEventListener("submit", async (event) => {

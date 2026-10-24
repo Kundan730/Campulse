@@ -11,6 +11,7 @@
 - Building history, source trace, operational evidence and 6/12-hour electricity forecasts.
 - Six-class smart-bin sensor classification with temporal holdout metrics and CPU inference.
 - Ranked anomaly hypotheses with evidence, uncertainty and suggested checks.
+- A distinctive action-to-verification rehearsal: turn a ranked alert into a follow-up plan, set a transparent target and compare matched seven-day, occupant-normalized windows. Plans are browser-local; observed changes are not treated as causal proof.
 - Historical replay and per-browser offline/reconnect simulation.
 - Occupant-normalized resource comparison against each building's prior baseline; credits are illustrative and are not issued.
 - Data health, workbook traceability and model-method pages.
