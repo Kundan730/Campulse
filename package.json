@@ -1,0 +1,16 @@
+{
+  "name": "campulse-resource-grid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Campus resource operations workspace with a transparent historical benchmark replay.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "node --watch server.mjs",
+    "prepare:data": "python3 scripts/prepare_data.py",
+    "benchmark:model": "node scripts/benchmark_inference.mjs"
+  }
+}

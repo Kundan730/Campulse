@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1C273B" />
+    <meta name="description" content="Campulse helps campus teams explore resource use, data quality, forecasts and operational evidence." />
+    <title>Campulse · Resource operations</title>
+    <link rel="stylesheet" href="/styles.css?v=20261024-7" />
+    <script type="module" src="/app.js?v=20261024-9"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Campulse navigation">
+        <a class="brand" href="#overview" data-brand-home aria-label="Campulse home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span><strong>campulse</strong><small>RESOURCE OPERATIONS</small></span>
+        </a>
+
+        <div class="sidebar-section-label">WORKSPACE</div>
+        <nav class="main-nav" aria-label="Main navigation">
+          <button class="nav-item is-active" data-view="overview" aria-current="page"><span class="nav-icon" aria-hidden="true">◫</span> Overview</button>
+          <button class="nav-item" data-view="campus"><span class="nav-icon" aria-hidden="true">⌖</span> Campus schematic</button>
+          <button class="nav-item" data-view="buildings"><span class="nav-icon" aria-hidden="true">▦</span> Buildings</button>
+          <button class="nav-item" data-view="waste"><span class="nav-icon" aria-hidden="true">♻</span> Waste sorting</button>
+          <button class="nav-item" data-view="alerts"><span class="nav-icon" aria-hidden="true">⚑</span> Alerts <span id="nav-alert-count" class="nav-count">0</span></button>
+          <button class="nav-item" data-view="impact"><span class="nav-icon" aria-hidden="true">◉</span> Impact & incentives</button>
+          <button class="nav-item" data-view="methods"><span class="nav-icon" aria-hidden="true">⌘</span> Data & methods</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="sidebar-rule"></div>
+          <div class="side-status-label"><span class="status-dot is-amber"></span> HISTORICAL DATA</div>
+          <p>Synthetic benchmark replay<br />20 Jun – 17 Oct 2026</p>
+          <button class="sidebar-link" data-view="methods">How the data is used <span aria-hidden="true">↗</span></button>
+        </div>
+      </aside>
+
+      <div class="main-column">
+        <header class="topbar">
+          <div class="topbar-context">
+            <span class="context-kicker">CAMPUS REFERENCE · CHANAKYA UNIVERSITY</span>
+            <span class="context-location">Devanahalli, Karnataka</span>
+          </div>
+          <div class="topbar-tools">
+            <span class="replay-badge"><span class="status-dot is-amber"></span> BENCHMARK REPLAY</span>
+            <button id="play-button" class="button button-dark button-sm" type="button" aria-label="Play historical replay">▶ <span>Play</span></button>
+            <label class="sr-only" for="speed-select">Replay speed</label>
+            <select id="speed-select" class="speed-select" aria-label="Replay speed">
+              <option value="1">1×</option>
+              <option value="4">4×</option>
+              <option value="12">12×</option>
+            </select>
+            <button id="reset-demo" class="button button-quiet button-sm" type="button" title="Clear this browser's offline simulation and alert review state">Reset simulation</button>
+          </div>
+        </header>
+
+        <main id="main-content" class="main-content">
+          <div id="loading-state" class="state-card" role="status" aria-live="polite">
+            <span class="loader" aria-hidden="true"></span>
+            <div><strong>Loading the resource benchmark</strong><p>Preparing replay data and model results…</p></div>
+          </div>
+          <div id="error-state" class="state-card is-error" role="alert" hidden>
+            <div><strong>Campulse could not load the benchmark data.</strong><p id="error-message">Check the connection and try again.</p></div>
+            <button id="retry-load" class="button button-dark button-sm" type="button">Retry</button>
+          </div>
+
+          <div id="app-content" hidden>
+            <div class="replay-controls card-inline">
+              <div class="replay-date"><span class="tiny-label">REPLAY ARRIVAL TIME</span><output id="replay-time" for="playback-slider">—</output></div>
+              <label class="sr-only" for="playback-slider">Move through benchmark reading arrival time</label>
+              <input id="playback-slider" type="range" min="0" max="100" value="100" step="1" />
+              <div class="replay-range"><span id="range-start">20 Jun 2026</span><span id="range-end">18 Oct 2026</span></div>
+              <span class="replay-help">Readings appear at their recorded arrival time.</span>
+            </div>
+
+            <section class="view is-visible" id="view-overview" aria-labelledby="overview-title">
+              <div class="page-heading">
+                <div>
+                  <div class="eyebrow">OPERATIONS / CAMPUS OVERVIEW</div>
+                  <h1 id="overview-title">Resource pulse</h1>
+                  <p class="page-subtitle">A building-level view of energy, water and waste in the selected benchmark replay.</p>
+                </div>
+                <div class="heading-meta"><span id="overview-day-label">—</span><span class="data-chip"><span class="status-dot is-amber"></span> Historical · synthetic</span></div>
+              </div>
+
+              <section id="priority-card" class="priority-card" aria-label="Recommended attention">
+                <div class="priority-mark" aria-hidden="true">!</div>
+                <div class="priority-copy"><span class="priority-label">REPLAY INSIGHT · EVIDENCE-BASED</span><h2 id="priority-title">Preparing the latest evidence…</h2><p id="priority-description"></p></div>
+                <button class="button button-light" type="button" data-view="alerts">Review evidence <span aria-hidden="true">↗</span></button>
+              </section>
+
+              <div class="metric-grid" aria-label="Latest completed day across benchmark buildings">
+                <article class="metric-card">
+                  <div class="metric-top"><span class="metric-icon icon-energy" aria-hidden="true">ϟ</span><span class="metric-period" id="metric-day-energy">Completed day</span></div>
+                  <div class="metric-value" id="metric-electricity">—</div><div class="metric-label">Grid electricity <span>(kWh)</span></div>
+                  <div class="metric-trend" id="metric-spark-energy"></div>
+                  <div class="metric-footnote" id="metric-electricity-note">—</div>
+                </article>
+                <article class="metric-card">
+                  <div class="metric-top"><span class="metric-icon icon-water" aria-hidden="true">◒</span><span class="metric-period" id="metric-day-water">Completed day</span></div>
+                  <div class="metric-value" id="metric-water">—</div><div class="metric-label">Water draw <span>(L)</span></div>
+                  <div class="metric-trend" id="metric-spark-water"></div>
+                  <div class="metric-footnote" id="metric-water-note">—</div>
+                </article>
+                <article class="metric-card">
+                  <div class="metric-top"><span class="metric-icon icon-waste" aria-hidden="true">↗</span><span class="metric-period" id="metric-day-waste">Completed day</span></div>
+                  <div class="metric-value" id="metric-waste">—</div><div class="metric-label">Waste generated <span>(kg)</span></div>
+                  <div class="metric-trend" id="metric-spark-waste"></div>
+                  <div class="metric-footnote" id="metric-waste-note">—</div>
+                </article>
+                <article class="metric-card metric-card-accent">
+                  <div class="metric-top"><span class="metric-icon icon-diversion" aria-hidden="true">◌</span><span class="metric-period" id="metric-day-diversion">Completed day</span></div>
+                  <div class="metric-value" id="metric-diversion">—</div><div class="metric-label">Circular diversion <span>(% of disposed mass)</span></div>
+                  <div class="metric-trend" id="metric-spark-diversion"></div>
+                  <div class="metric-footnote" id="metric-diversion-note">—</div>
+                </article>
+              </div>
+
+              <div class="content-grid overview-grid">
+                <article class="panel chart-panel">
+                  <div class="panel-heading">
+                    <div><div class="eyebrow">24-HOUR SIGNAL</div><h2>Resource demand</h2><p id="overview-chart-caption">Available hourly readings by capture time.</p></div>
+                    <label class="select-wrap"><span class="sr-only">Resource shown</span><select id="overview-resource" aria-label="Choose resource chart"><option value="electricity_kwh">Electricity · kWh</option><option value="water_litres">Water · L</option><option value="footfall">Footfall · passages</option></select></label>
+                  </div>
+                  <div id="overview-chart" class="chart-wrap"></div>
+                  <div class="chart-legend"><span><i class="legend-line legend-green"></i> Benchmark reading</span><span id="overview-chart-source">Hourly stream · capture time</span></div>
+                </article>
+                <article class="panel attention-panel">
+                  <div class="panel-heading"><div><div class="eyebrow">BUILDING ATTENTION</div><h2>Where to look first</h2><p>Prioritized from available evidence, not live alarms.</p></div><button class="text-button" type="button" data-view="alerts">All evidence <span aria-hidden="true">→</span></button></div>
+                  <div id="attention-list" class="attention-list"></div>
+                </article>
+              </div>
+
+              <section class="panel buildings-panel">
+                <div class="panel-heading"><div><div class="eyebrow">8 BENCHMARK BUILDINGS</div><h2>Building status</h2><p>Names and IDs come from the hypothetical dataset; they do not map to verified campus buildings.</p></div><button class="text-button" type="button" data-view="buildings">Open building detail <span aria-hidden="true">→</span></button></div>
+                <div id="overview-buildings" class="building-card-grid"></div>
+              </section>
+
+              <div class="overview-footer" id="freshness-summary"></div>
+            </section>
+
+            <section class="view" id="view-campus" aria-labelledby="campus-title" hidden>
+              <div class="page-heading">
+                <div><div class="eyebrow">CAMPUS CONTEXT</div><h1 id="campus-title">Explore the resource network</h1><p class="page-subtitle">An interactive schematic for quick understanding, with verified campus facts kept separate from synthetic records.</p></div>
+              </div>
+              <article class="panel schematic-panel resource-map-panel">
+                <div class="panel-heading"><div><div class="eyebrow">CAMPUS / RESOURCE NETWORK</div><h2>Explore the resource pulse</h2><p>Select a building to see its latest complete-day reading and replay freshness.</p></div><span class="schematic-pill">BENCHMARK · SCHEMATIC</span></div>
+                <div class="map-toolbar">
+                  <div id="map-resource-switch" class="map-resource-switch" role="group" aria-label="Resource shown on building nodes">
+                    <button type="button" class="map-resource is-active" data-campus-resource="electricity_kwh" aria-pressed="true"><span aria-hidden="true">ϟ</span> Energy</button>
+                    <button type="button" class="map-resource" data-campus-resource="water_litres" aria-pressed="false"><span aria-hidden="true">◉</span> Water</button>
+                    <button type="button" class="map-resource" data-campus-resource="waste_kg" aria-pressed="false"><span aria-hidden="true">↻</span> Waste</button>
+                    <button type="button" class="map-resource" data-campus-resource="diversion_pct" aria-pressed="false"><span aria-hidden="true">♻</span> Diverted</button>
+                  </div>
+                  <div class="map-reading-meta"><div class="map-reading-total"><strong id="map-reading-total">—</strong><small id="map-total-coverage">Selected resource</small></div><span id="map-reading-date">Latest complete day</span><span class="map-data-chip"><i aria-hidden="true"></i> Historical · synthetic</span></div>
+                </div>
+                <div class="map-explorer">
+                  <div class="map-stage">
+                    <div class="map-stage-heading"><span>BENCHMARK BUILDING NETWORK</span><span>Click a node to inspect</span></div>
+                    <div class="map-network-canvas">
+                      <svg class="map-connections" viewBox="0 0 1000 430" preserveAspectRatio="none" aria-hidden="true">
+                        <path d="M125 88 C270 88 355 194 500 215 S730 342 875 342" />
+                        <path d="M375 88 C440 110 455 178 500 215 S560 320 625 342" />
+                        <path d="M625 88 C560 112 545 176 500 215 S440 319 375 342" />
+                        <path d="M875 88 C730 88 645 194 500 215 S270 342 125 342" />
+                        <circle cx="500" cy="215" r="17" /><circle cx="500" cy="215" r="5" />
+                      </svg>
+                      <div id="schematic-buildings" class="schematic-buildings"></div>
+                      <div class="map-hub-label"><i aria-hidden="true">✳</i><span>Campulse signal layer</span></div>
+                    </div>
+                    <div class="map-legend"><span><i class="status-dot is-green"></i> Recent</span><span><i class="status-dot is-amber"></i> Delayed / stale</span><span><i class="status-dot is-red"></i> Offline</span><span><i class="status-dot is-gray"></i> Missing</span></div>
+                    <p class="map-footnote">Dotted links show conceptual data relationships only. They are not surveyed paths, pipes or cables.</p>
+                  </div>
+                  <aside id="map-selected-building" class="map-detail-card" aria-live="polite" aria-label="Selected benchmark building"></aside>
+                </div>
+              </article>
+              <div class="notice-box map-honesty-note"><strong>Geometry limitation.</strong> No georeferenced building footprints or current digital site plan were verified. Node positions and links are illustrative; synthetic B01–B08 do not map to Chanakya University buildings. A site plan or GeoJSON is needed for a geographic map.</div>
+              <div class="campus-context-grid">
+                <article class="panel campus-place-card">
+                  <div class="eyebrow">VERIFIED CAMPUS NAME & ADDRESS</div>
+                  <div class="place-pin" aria-hidden="true">⌖</div>
+                  <h2>Chanakya University Global Campus</h2>
+                  <p>NH-648, Haraluru–Polanahalli, near Kempegowda International Airport, Devanahalli, Bengaluru Rural, Karnataka.</p>
+                  <div class="address-note"><span class="status-dot is-amber"></span><span>The university contact page lists PIN <strong>562165</strong>. A validated legal-entity listing updated in June 2026 uses <strong>562110</strong>, matching the supplied address. Confirm postal routing with the University.</span></div>
+                  <a class="source-link" href="https://chanakyauniversity.edu.in/contact/" target="_blank" rel="noreferrer">University contact page <span aria-hidden="true">↗</span></a>
+                </article>
+                <article class="panel facilities-card">
+                  <div class="eyebrow">PUBLICLY NAMED CAMPUS SPACES</div><h2>Names, without guessed positions</h2>
+                  <p>These names appear in University pages. The list does not place them on the diagram.</p>
+                  <div class="facility-list"><span>Sudha & Kris Gopalakrishnan Academic Block</span><span>Dr. Sita Ram Jindal Administrative Block</span><span>Vidyaranya Library</span><span>H.G. Khorana Biosciences Lab</span><span>Preksha Auditorium</span><span>Sri O.P. Jindal Food Court</span><span>Nityapurna Cafeteria</span><span>Smt. Vidya Devi Jindal Hostel Block</span></div>
+                  <a class="source-link" href="https://chanakyauniversity.edu.in/blog/the-power-of-campus-life-in-shaping-holistic-education/" target="_blank" rel="noreferrer">University campus facilities page <span aria-hidden="true">↗</span></a>
+                </article>
+              </div>
+            </section>
+
+            <section class="view" id="view-buildings" aria-labelledby="buildings-title" hidden>
+              <div class="page-heading"><div><div class="eyebrow">BUILDING / DETAIL</div><h1 id="buildings-title">Building detail</h1><p class="page-subtitle">Historical use, available activity, evidence and a six- or twelve-hour forecast.</p></div>
+                <label class="building-picker"><span>Benchmark building</span><select id="building-select" aria-label="Choose benchmark building"></select></label>
+              </div>
+              <div id="building-detail-heading" class="building-detail-heading"></div>
+              <div class="detail-summary-grid" id="detail-summary"></div>
+              <div class="content-grid detail-grid">
+                <article class="panel chart-panel"><div class="panel-heading"><div><div class="eyebrow">CAPTURED HISTORY</div><h2>Hourly resource use</h2><p id="building-hourly-caption">—</p></div><label class="select-wrap"><span class="sr-only">Building resource</span><select id="building-resource" aria-label="Choose building resource"><option value="electricity_kwh">Grid electricity · kWh</option><option value="water_litres">Water · L</option><option value="solar_generation_kwh">Solar output · kWh</option><option value="footfall">Footfall · passages</option></select></label></div><div id="building-hourly-chart" class="chart-wrap chart-tall"></div><div id="building-quality-note" class="chart-note"></div></article>
+                <article class="panel forecast-panel"><div class="panel-heading"><div><div class="eyebrow">LOW-COST CPU FORECAST</div><h2>Demand ahead</h2><p>Ridge regression · scheduled context and arrived readings only.</p></div><span class="confidence-badge">HOLDOUT ERROR BAND</span></div><div id="forecast-points" class="forecast-points"></div><div id="forecast-chart" class="forecast-chart"></div><div class="forecast-legend"><span><i class="forecast-key forecast-key-model"></i> Forecast</span><span><i class="forecast-key forecast-key-baseline"></i> Seasonal baseline</span><span><i class="forecast-key forecast-key-band"></i> p90 error range</span></div><div id="forecast-context-note" class="chart-note"></div></article>
+              </div>
+              <div class="content-grid">
+                <article class="panel"><div class="panel-heading"><div><div class="eyebrow">SCHEDULE & MANUAL CONTEXT</div><h2>What else was happening</h2><p>Manual notes are corroborating evidence; they do not overwrite sensor values.</p></div></div><div id="building-events" class="event-list"></div></article>
+                <article class="panel source-panel"><div class="panel-heading"><div><div class="eyebrow">TRACEABILITY</div><h2>Latest available record</h2><p>Arrival time determines when replay makes a reading visible.</p></div></div><div id="building-source-detail"></div></article>
+              </div>
+            </section>
+
+            <section class="view" id="view-waste" aria-labelledby="waste-title" hidden>
+              <div class="page-heading"><div><div class="eyebrow">WASTE / EDGE CLASSIFICATION</div><h1 id="waste-title">Sort with a sensor, review with a person</h1><p class="page-subtitle">The model uses five smart-bin signals. There is no image data or camera pipeline in this prototype.</p></div><span class="model-chip"><span class="status-dot is-green"></span> Local inference · CPU</span></div>
+              <div class="model-summary-grid" id="waste-model-summary"></div>
+              <div class="content-grid model-grid">
+                <article class="panel"><div class="panel-heading"><div><div class="eyebrow">TEMPORAL HOLDOUT</div><h2>Performance by class</h2><p>Latest 20% of labeled training events kept out of fitting.</p></div><span id="waste-accuracy-badge" class="accuracy-badge">—</span></div><div class="table-scroll"><table class="data-table" id="waste-metrics-table"><thead><tr><th scope="col">Class</th><th scope="col">Support</th><th scope="col">Precision</th><th scope="col">Recall</th><th scope="col">F1</th></tr></thead><tbody></tbody></table></div></article>
+                <article class="panel"><div class="panel-heading"><div><div class="eyebrow">ERROR PATTERN</div><h2>Confusion matrix</h2><p>Rows are actual class; columns are predicted class.</p></div></div><div id="confusion-matrix" class="matrix-scroll"></div></article>
+              </div>
+              <div class="content-grid">
+                <article class="panel inference-panel"><div class="panel-heading"><div><div class="eyebrow">TRY EDGE INFERENCE</div><h2>Classify sensor readings</h2><p>Blank fields use the training-set median and are flagged in the result.</p></div><span class="local-chip">No cloud GPU</span></div>
+                  <form id="classify-form" class="sensor-form">
+                    <label>Weight <span>g</span><input name="weight_g" type="number" step="any" min="0" placeholder="e.g. 145" /></label>
+                    <label>Moisture <span>%</span><input name="moisture_pct" type="number" step="any" min="0" max="100" placeholder="e.g. 68" /></label>
+                    <label>Metal signal <span>unitless</span><input name="metal_signal" type="number" step="any" min="0" max="100" placeholder="e.g. 72" /></label>
+                    <label>Transparency <span>0–1</span><input name="transparency" type="number" step="any" min="0" max="1" placeholder="e.g. 0.12" /></label>
+                    <label>Acoustic hardness <span>0–1</span><input name="acoustic_hardness" type="number" step="any" min="0" max="1" placeholder="e.g. 0.2" /></label>
+                    <div class="form-actions"><button class="button button-dark" type="submit">Classify event <span aria-hidden="true">→</span></button><button id="clear-sensors" class="button button-quiet" type="button">Clear inputs</button></div>
+                  </form><div id="inference-result" class="inference-result" aria-live="polite"></div>
+                </article>
+                <article class="panel test-preview-panel"><div class="panel-heading"><div><div class="eyebrow">UNLABELLED TEST STREAM</div><h2>Prediction preview</h2><p>Classes are model output. No ground-truth labels were supplied.</p></div><span class="unlabelled-badge">1,601 unlabelled events</span></div>
+                  <div class="test-select-row"><label for="waste-class-filter">Predicted class</label><select id="waste-class-filter"><option value="all">All classes</option></select></div>
+                  <label class="test-event-label" for="waste-test-event">Sample event</label><select id="waste-test-event"></select><div id="waste-event-detail" class="waste-event-detail"></div>
+                </article>
+              </div>
+              <div class="notice-box">A class score is not calibrated confidence. Low-score or close-call events are marked for manual review. The model was evaluated on labeled benchmark rows only; the unlabelled test set is never scored as if its class were known.</div>
+            </section>
+
+            <section class="view" id="view-alerts" aria-labelledby="alerts-title" hidden>
+              <div class="page-heading"><div><div class="eyebrow">ALERTS / EXPLAINABLE ACTIONS</div><h1 id="alerts-title">Evidence, then action</h1><p class="page-subtitle">Ranked historical candidates from the selected replay time. Explanations are plausible, not proven causes.</p></div><span id="alert-count-chip" class="data-chip">—</span></div>
+              <div id="alerts-list" class="alerts-list"></div>
+              <div class="method-inline"><strong>How ranking works</strong><span>Large normalized changes rank first. Calendar events, manual notes and corroborating signals raise evidence strength. The explanation is a hypothesis and needs a site check.</span></div>
+            </section>
+
+            <section class="view" id="view-impact" aria-labelledby="impact-title" hidden>
+              <div class="page-heading"><div><div class="eyebrow">IMPACT / INCENTIVE LOOP</div><h1 id="impact-title">Reward fair reductions</h1><p class="page-subtitle">Compare each benchmark building with its own recent baseline, normalized per occupant-day.</p></div><label class="building-picker"><span>Compare resource</span><select id="impact-resource" aria-label="Choose impact resource"><option value="electricity_kwh">Electricity · kWh</option><option value="water_litres">Water · L</option><option value="waste_kg">Waste · kg</option></select></label></div>
+              <div id="impact-leaderboard" class="impact-list"></div>
+              <div class="content-grid impact-method-grid"><article class="panel"><div class="eyebrow">PROPOSED CREDIT RULE</div><h2>Make the comparison fair</h2><ul class="plain-list"><li>Compare the latest seven complete days with the prior 28 complete days for the same building.</li><li>Divide daily totals by estimated occupant-days; do not reward a quiet building for lower total use alone.</li><li>Use a provisional score of one point per percentage point of reduction, capped at 100, and award zero when use rises.</li><li>Do not issue credits until a phased pilot verifies occupancy and meter quality. Keep personal data out of scoring.</li></ul></article><article class="panel"><div class="eyebrow">MEASURE WHETHER IT WORKS</div><h2>Run a phased comparison</h2><p>Match similar buildings, start credits in one group first, and compare normalized use before and after against a delayed-start group. Adjust for occupancy and academic calendar. Audit meter coverage and unusual reporting before awarding credits.</p><div class="impact-status"><span class="status-dot is-amber"></span> Scores here are illustrative benchmark calculations. No credits are issued.</div></article></div>
+            </section>
+
+            <section class="view" id="view-methods" aria-labelledby="methods-title" hidden>
+              <div class="page-heading"><div><div class="eyebrow">SYSTEM / DATA & METHODS</div><h1 id="methods-title">How Campulse is built</h1><p class="page-subtitle">A transparent benchmark workspace with traceable sources, timing and model limits.</p></div><span id="api-health-chip" class="data-chip">Checking service…</span></div>
+              <div class="content-grid methods-grid">
+                <article class="panel method-card"><div class="eyebrow">DATA HEALTH</div><h2>Arrival and coverage</h2><p>Rows marked delayed or missing remain visible. Missing values stay unavailable rather than becoming zero.</p><div id="health-summary"></div></article>
+                <article class="panel method-card"><div class="eyebrow">DATA SOURCES</div><h2>Seven read-only workbooks</h2><div id="source-summary" class="source-summary"></div><a class="source-link" href="/api/health" target="_blank" rel="noreferrer">Service health <span aria-hidden="true">↗</span></a></article>
+              </div>
+              <article class="panel forecast-evaluation-panel"><div class="panel-heading"><div><div class="eyebrow">TIME-AWARE HOLDOUT</div><h2>Forecast skill and uncertainty</h2><p>Electricity demand · latest 20% of target times held out · input rows restricted to those received by forecast origin.</p></div><span class="budget-chip">RIDGE · CPU</span></div><div id="forecast-evaluation" class="forecast-evaluation"></div><p class="table-footnote">Compared with same-hour-yesterday seasonal naive. The empirical p90 absolute error band is useful for triage, not a guarantee. Future weather and future footfall are unavailable in the source benchmark.</p></article>
+              <article class="panel"><div class="panel-heading"><div><div class="eyebrow">PROOF-OF-CONCEPT BUDGET</div><h2>₹45,000 per building for hardware</h2><p>Planning prices checked 24 October 2026; local installation and calibration labor are excluded.</p></div><span class="budget-chip">HARDWARE CAP</span></div><div class="table-scroll"><table class="data-table budget-table"><thead><tr><th scope="col">Component</th><th scope="col">Scope</th><th scope="col">Planning INR</th><th scope="col">Basis</th></tr></thead><tbody><tr><td>Raspberry Pi 5 · 4 GB</td><td>Edge compute</td><td>₹10,244</td><td><a href="https://in.element14.com/raspberry-pi/rpi5-4gb-single/rpi-5-board-2-4ghz-4gb-arm-cortex/dp/4255998" target="_blank" rel="noreferrer">Element14 listing ↗</a></td></tr><tr><td>Power supply, case, cooler</td><td>Edge compute accessories</td><td>₹2,378</td><td><a href="https://robu.in/product/raspberry-pi-5-model-4gb/" target="_blank" rel="noreferrer">Robu component listings ↗</a></td></tr><tr><td>High-endurance microSD</td><td>Local queue and OS</td><td>₹1,000</td><td>Planning allowance</td></tr><tr><td>Three-phase Modbus energy meter</td><td>Electricity sub-meter</td><td>₹21,602</td><td><a href="https://pricehistory.app/p/sdm630-modbus-three-phase-electric-energy-meter-fuSoXAce" target="_blank" rel="noreferrer">Price history listing ↗</a></td></tr><tr><td>Isolated RS-485 adapter and cable</td><td>Meter connectivity</td><td>₹1,000</td><td>Planning allowance</td></tr><tr><td>1-inch pulse flow sensor</td><td>Water pilot line</td><td>₹884</td><td><a href="https://www.electronicscomp.com/1-inch-water-flow-sensor-yf-g1-dn-25" target="_blank" rel="noreferrer">ElectronicsComp listing ↗</a></td></tr><tr><td>ESP32 sub-controller</td><td>Low-rate sensor acquisition</td><td>₹799</td><td><a href="https://robu.in/product-category/espressif-dev-boards-and-modules/" target="_blank" rel="noreferrer">Robu listings ↗</a></td></tr><tr><td>Smart-bin five-signal sensor set</td><td>Load, moisture, metal, optical, acoustic</td><td>₹2,200</td><td><a href="https://robu.in/product-category/sensor-modules/load-pressure-force-flex-sensor/" target="_blank" rel="noreferrer">Load-cell listing ↗</a> plus probe allowance</td></tr><tr><td>Enclosure, DIN rail, glands, mounting</td><td>Install materials</td><td>₹2,000</td><td>Planning allowance</td></tr><tr><td>Existing campus LAN / provisioning</td><td>Connectivity allowance</td><td>₹1,000</td><td>Assumes Wi-Fi or Ethernet is available</td></tr><tr class="table-total"><td colspan="2">Hardware subtotal</td><td>₹43,107</td><td>Current component assumptions</td></tr><tr class="table-total"><td colspan="2">Contingency</td><td>₹1,893</td><td>Price and wiring variance</td></tr><tr class="table-total"><td colspan="2">Per-building cap</td><td>₹45,000</td><td>Excludes labor and recurring campus LAN</td></tr></tbody></table></div><p class="table-footnote">The low-cost flow sensor is a proof-of-concept pulse meter for a compatible branch line, not a calibrated potable-water billing meter. A licensed electrician must confirm the energy meter rating and install it safely. The 100 A meter listing must be checked against the actual feeder.</p></article>
+              <div class="content-grid methods-grid"><article class="panel"><div class="eyebrow">SCALE FROM 3 TO 30+</div><h2>Keep the building edge simple</h2><p>Each building publishes timestamped readings to a shared ingestion endpoint. At 30 buildings × four hourly telemetry channels, the campus receives about 120 channel readings per hour, plus configurable smart-bin events (3,000 per day at 100 per building). A shared MQTT broker and PostgreSQL time-series tables can absorb that rate with batched writes, partitioned retention and one configuration record per building. The prototype uses SQLite and a local process. Move the same record keys and schemas to PostgreSQL and add broker workers; the device and dashboard contracts stay the same.</p></article><article class="panel"><div class="eyebrow">FAILURE MODES</div><h2>Detect and contain</h2><ul class="plain-list"><li><strong>Sensor drift:</strong> flag flat lines, impossible jumps and disagreement with manual checks; compare against a reference meter and recalibrate before adjusting operations.</li><li><strong>Gateway outage:</strong> alert after three missed hourly arrivals, retain a stale building card, queue records locally, then reconcile by building ID and capture timestamp on reconnect.</li><li><strong>Model degradation:</strong> track human overrides and per-class review rates by month; collect a small audited sample and retrain only after time-aware validation.</li><li><strong>Incentive gaming:</strong> require meter completeness, use occupant-day normalization and audit sudden denominator changes before awarding any credits.</li></ul></article></div>
+              <div class="notice-box"><strong>Software and shared infrastructure.</strong> Campulse uses open-source Node.js, SQLite and Python tooling, with no paid inference service. Production hosting, broker operations, campus network work, professional meter installation, maintenance and calibration are shared or site-specific costs outside the per-building hardware cap.</div>
+            </section>
+          </div>
+        </main>
+        <footer class="app-footer"><span>Campulse · The pulse of a resource-smart campus.</span><span id="footer-mode">Historical benchmark data · not live telemetry</span></footer>
+      </div>
+    </div>
+    <dialog id="source-dialog" class="source-dialog" aria-labelledby="source-dialog-title">
+      <div class="dialog-heading"><div><div class="eyebrow">RAW SOURCE ROW</div><h2 id="source-dialog-title">Workbook values</h2></div><button id="close-source-dialog" class="icon-button" type="button" aria-label="Close source row">×</button></div>
+      <p id="source-dialog-description" class="dialog-description"></p>
+      <pre id="source-dialog-values" class="source-json"></pre>
+    </dialog>
+  </body>
+</html>

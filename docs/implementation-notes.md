@@ -1,0 +1,85 @@
+# Campulse implementation notes
+
+Checked 24 October 2026. These notes distinguish public campus facts, synthetic benchmark data and implementation assumptions.
+
+## Product users and decisions
+
+Facilities managers need a campus-wide pulse, fast attention ranking, likely near-term demand and an action they can verify. Building coordinators need a traceable way to compare sensor readings with local notes and schedules. Decision-makers need an honest view of data coverage, outcomes, costs and uncertainty. The interface therefore puts completed-day resource totals, freshness and ranked evidence first; every detail page preserves the raw source path and distinguishes capture time from arrival time.
+
+## Campus facts and geometry
+
+The University currently presents itself as **Chanakya University Global Campus**. Its official contact page gives “NH-648, Haraluru-Polanahalli, near Kempegowda International Airport, Devanahalli, Bengaluru – 562165.” The user-supplied address uses PIN 562110. A Bloomberg-hosted LEI record for THE CHANAKYA UNIVERSITY shows legal and headquarters address PIN 562110, with a validated address change recorded on 15 June 2026. The UI preserves this postal-code discrepancy and asks for confirmation rather than silently choosing one. Sources: [University contact page](https://chanakyauniversity.edu.in/ciph/contact-us/), [Bloomberg LEI record](https://lei.bloomberg.com/leis/view/894500DMECD0CSWDXO16).
+
+Official University pages publicly name the Sudha & Kris Gopalakrishnan Academic Block and spaces including Dr. Sita Ram Jindal Administrative Block, Vidyaranya Library, H.G. Khorana Biosciences Lab, Preksha Auditorium, Sri O.P. Jindal Food Court, Nityapurna Cafeteria and Smt. Vidya Devi Jindal Hostel Block. Sources: [University facilities article](https://chanakyauniversity.edu.in/blog/the-power-of-campus-life-in-shaping-holistic-education/), [April 2026 academic block announcement](https://chanakyauniversity.edu.in/happenings-at-cu/chanakya-university-inaugurates-new-academic-block-dharmendra-pradhan-stresses-indias-higher-education-transformation-for-viksit-bharat-2047/).
+
+No university-verified, georeferenced building plan was found. Research checked on 24 October 2026 did find an OpenStreetMap area for Chanakya University (way 1183468126), tagged `amenity=university` and `landuse=education`, with 38 boundary nodes. Its current OSM page says the latest edit traced buildings and land use from imagery; it is community mapping, not a university survey. A map index reports the feature centre at 13.22465, 77.75783; treat this as an approximate place pin, not a surveyed entrance or building coordinate. The University's Campus Architecture page publishes aerial-view, central-vista and entrance images; its 2024 brochure describes a 116-acre campus and includes a master-plan visual, but neither source provides georeferenced building footprints.
+
+The implemented view remains an interactive 2D resource-network schematic: select energy, water, waste or diversion, then click one of eight benchmark nodes to see its latest complete-day value, replay freshness and any ranked evidence. Dotted links are conceptual data relationships only, not surveyed paths, pipes or cables. Node positions and generic building glyphs are illustrative; synthetic B01–B08 are not assigned to public university buildings. The SVG prototype needs no external map service or API key. A CARTO-backed location map is feasible with the OSM campus-centre point; an OSM area outline should be labeled community-mapped and provisional until facilities staff confirm it. A campus site plan/GeoJSON plus a separate real-building ID table is needed before resource readings can be pinned to real footprints. Preserve CARTO and OpenStreetMap attribution and OSM ODbL requirements if importing OSM geometry.
+
+The supplied CARTO raster tile URL supports a Leaflet location map; the vector style URL supports a MapLibre map. CARTO documents API keys as permanent tokens that can be restricted to specific APIs and referrer websites. Keep the key out of source control, restrict it to the basemap API and approved local/production referrers, and disclose that client-side tile requests make a public basemap key visible in browser traffic. Check CARTO's current commercial-use terms before a production deployment.
+
+## Data sources and transformations
+
+All seven supplied files are read-only Excel workbooks. The actual source folder has no CSV files or `excel_format/` directory, despite the guide mentioning CSV. Each workbook has one sheet. The workbook inventory, complete columns, inferred data types, units, date ranges, nulls, duplicate keys and primary relationships are in [`data-audit.md`](data-audit.md).
+
+The service fuses more than three asynchronous sources: hourly telemetry (`timestamp` capture and `received_at` arrival), daily summaries, the benchmark calendar (including weather context), manual logs and smart-bin sensor events. Manual aliases are mapped through a fixed table. kWh and “units” normalize to kWh, kL to 1,000 L, litres remain L, kilograms remain kg, and bag entries use an explicitly approximate 8 kg/bag conversion. Raw values, source row IDs and original aliases remain available. Manual values never overwrite telemetry. Daily summaries and hourly readings remain separate grains.
+
+Hourly rows group on `(building_id, timestamp)`. The chosen normalized row maximizes non-missing channels, then latest arrival, then workbook row number; all revisions remain in trace data and conflicting duplicate groups are flagged. Arrival delays over 2 h are marked delayed and over 6 h severe. Missing numeric values remain null. Possible noisy hourly values are flagged when they fall beyond eight scaled median absolute deviations for that building, channel and hour-of-day, which avoids mistaking the regular daily load profile for a sensor spike. The final audit found 116 possible noisy values. This is a retrospective full-benchmark audit flag, not a causal claim or a production streaming detector. Values are retained without smoothing. A live gateway should calculate the same robust check from past-only rolling history. The 120-day schedule has 73 empty event descriptions; hourly telemetry has 23,008 of 23,040 expected capture keys, 184 retransmitted keys (all with differing values), and 32 absent keys. Dataset timestamps have no timezone metadata; the prototype preserves naive wall-clock values. IST is a campus assumption to confirm with device owners before ingestion.
+
+Waste totals use composted + recycled + landfill mass so diversion is not double-counted. Diverted share is `(composted + recycled) / (composted + recycled + landfill)`. Category waste is retained separately. Manual bag-to-kilogram conversion is approximate and should not feed a procurement or billing decision without calibration.
+
+## Waste classification
+
+`waste_events_train.xlsx` supplies 6,314 labels under the actual column `category` (the guide calls it `waste_class`). The six classes are food_organic, paper_cardboard, plastic, glass, metal and ewaste. Inputs are the five numeric smart-bin signals only: weight, moisture, metal response, transparency and acoustic hardness. IDs, bins and timestamps are excluded from model features to avoid leakage. Missing sensor values are median-imputed from the training period.
+
+An 80/20 chronological split trains on the early 5,051 events and validates on the later 1,263; cutoff 27 September 2026. The practical ExtraTrees-style CPU forest uses 80 trees, maximum depth 14 and minimum leaf size 8. It reaches **85.43% accuracy** and **0.825 macro F1** on this later-period holdout. Per-class precision / recall / F1: ewaste 95.3 / 60.3 / 73.9%; food_organic 94.3 / 91.1 / 92.7%; glass 81.7 / 68.1 / 74.2%; metal 87.8 / 89.4 / 88.6%; paper_cardboard 75.1 / 89.5 / 81.7%; plastic 84.4 / 83.2 / 83.8%. The weak ewaste and glass recall makes human review important even though aggregate accuracy exceeds the requested 85% target.
+
+Python/NumPy holdout prediction timing was about 0.29 ms/event in the final preparation run. The shipped dependency-free JavaScript inference path was benchmarked on Node v22.16.0, macOS arm64, over 1,601 events on 24 October 2026. Two runs measured p50 0.027–0.035 ms, p95 0.101–0.119 ms, mean 0.045–0.052 ms and maximum 0.685–0.695 ms. `npm run benchmark:model` repeats this measurement on the current host and writes `data/waste-inference-benchmark.json`; `npm start` measures the current Node host before serving. These timings vary with machine load and are not Raspberry Pi timings; no Pi was available. The forest is small enough for local CPU inference without a continuously available cloud GPU, but Raspberry Pi timing must be measured before deployment. The 1,601 test events have no labels; their classes in the UI are predictions only and do not contribute to evaluation. No camera data or vision model exists.
+
+## Forecasting
+
+Ridge regression predicts hourly building electricity at 6 and 12 hours. Features include only telemetry received by the forecast origin, lagged demand, a short rolling mean, known calendar schedule, benchmark footfall and cyclical hour/day terms. There is no weather or footfall observation from after the forecast origin. The final 20% of target timestamps is held out chronologically. The production forecast is a low-cost CPU linear model with stored coefficients, medians and scales.
+
+| Horizon | Ridge MAE | Ridge RMSE | Ridge WAPE | Same-hour-yesterday MAE | Holdout p90 absolute error |
+|---|---:|---:|---:|---:|---:|
+| 6 h | 4.96 kWh | 7.21 kWh | 13.01% | 5.28 kWh | ±11.68 kWh |
+| 12 h | 4.51 kWh | 6.53 kWh | 11.83% | 5.28 kWh | ±10.40 kWh |
+
+The forecast improves over the seasonal-naive baseline in this benchmark. Error ranges use the later-period holdout's 90th percentile absolute residual, not a calibrated conditional interval or guarantee. The schedule ends with the benchmark, so forecasts after 17 October use median schedule features. Synthetic data, uncertain footfall and lack of real weather limit transfer to campus operation.
+
+## Replay, offline queue and reconciliation
+
+The slider replays historical rows by `received_at`, so late captures become visible only when their arrival is reached. Simulated offline mode freezes each building at its last visible arrival while campus pages continue to show the building and stale/offline status. As replay advances, new arrivals enter a SQLite demo queue scoped to an opaque browser session. Reconnection marks queued rows synchronized and logs queued and deduplicated counts. Deterministic identity is `building_id + capture timestamp`; when competing revisions arrive, latest `received_at` wins. Full workbook revisions stay in source trace. Session state is stored separately from the read-only benchmark database, uses a same-site HTTP-only cookie, and expires after 30 idle days.
+
+This demonstrates the app-side integrity rule with benchmark rows. It does not emulate power loss or a real gateway's flash storage. A deployable edge gateway needs a durable local journal, bounded retention, clock drift handling and retry/backoff. Duplicate, delayed and conflicting data never becomes an invented zero.
+
+## Alerts and recommendations
+
+The ranked examples derive from daily deviations against each building's preceding 28-day median plus calendar and manual-log evidence. The interface shows the values and notes that support each hypothesis, a concrete next check, a heuristic evidence rank and caveats. The rank is not calibrated probability. For example, the food-court alumni-meet association has matching schedule, a prior-day preparation note and higher occupancy, electricity and wet waste; that temporal agreement does not prove causality. A library holiday note is shown with stable total electricity so a low occupancy denominator cannot be mistaken for a large total energy anomaly.
+
+## Incentives and impact measurement
+
+The demo compares each building's latest seven complete days with its prior 28 complete days for a chosen resource. It divides the sums by estimated occupant-days, ranks only where values exist and illustrates a capped one-credit-per-percentage-point reduction score. Scores issue no actual credits. A real pilot should pair similar buildings, phase incentives across a delayed-start comparison group, account for occupancy and calendar, require meter coverage, and audit denominator changes and manual overrides. This supports a difference-in-differences style estimate and reduces rewards for a quiet schedule or gaming. Keep individual identity out of scoring.
+
+## Budget and scale
+
+The proposed hardware cap is **₹45,000 per building**, planning prices checked 24 October 2026. It includes a Raspberry Pi 5 4 GB (₹10,244), PSU/case/cooler (₹2,378), microSD allowance (₹1,000), 3-phase Modbus meter (₹21,602), isolated RS-485 and cable (₹1,000), compatible 1-inch pulse flow sensor (₹884), ESP32 sub-controller (₹799), a five-signal smart-bin sensor allowance (₹2,200), enclosure and mounting (₹2,000), existing campus LAN/provisioning allowance (₹1,000), plus ₹1,893 contingency. The bill is a planning estimate; vendor stock/tax/shipping changes, sensor probes, calibration, plumbing and electrician labor are excluded. See the linked vendors in the method view. The SDM630 family supports three-phase RS-485 Modbus in the manufacturer's [2026 catalog](https://www.eastrongroup.com/eastrongroup/2026/02/27/EastronCatalog2026.pdf); its listed 100 A class must be checked against each feeder. The pulse flow sensor is an experimental branch-line counter, not a billing meter.
+
+The cap covers edge hardware only. Software is open source in this prototype. Production broker hosting, database operations, campus networking, dashboards, electrician work, calibration and maintenance are shared or site costs. At 30 buildings with four hourly telemetry channels, ingestion is about 120 channel readings/hour, plus configurable bin events (e.g. 100 events/building/day is 3,000/day). One MQTT broker, batched writes into partitioned PostgreSQL/time-series tables, a building configuration registry and the same edge payload contract cover this volume; queue workers and retention can scale horizontally without changing building devices or dashboard workflows.
+
+## Failure detection and mitigation
+
+- **Sensor drift:** alert on stuck/flat values, physical bounds, abrupt step changes and disagreement with periodic reference readings or manual logs. Quarantine the suspect channel, compare with a calibrated reference and recalibrate before acting on its trend.
+- **Gateway/network outage:** mark a building stale after three missing hourly arrivals, preserve its last known values, buffer locally and retry with backoff. Reconcile idempotently on reconnect; alert if the local journal approaches its retention limit.
+- **Model degradation:** monitor override/review rates and class-wise performance using periodically audited labels; compare temporal holdout metrics before a versioned rollout and keep the prior model for rollback.
+- **Incentive gaming:** block scores when meter completeness is low, normalize by occupant-days, audit sudden denominator changes and use a delayed-start comparison group.
+
+## Remaining real-world inputs
+
+The prototype can be run and demonstrated from the supplied files. A verified digital site plan, university confirmation of postal PIN and canonical campus building list, real meter and bin devices, permissioned network access, calibrated sensor installation, local device timezone, and a labeled field sample are required before any live operations or campus-specific model claims.
+
+## Website deployment
+
+The workspace now has a multi-stage Docker build and a Docker Compose setup for a public benchmark demonstration. The Node service binds to the host-provided `PORT`, exposes `/api/health`, serves only assets from `public/`, and keeps generated SQLite/model artifacts in the private `data/` directory. The benchmark SQLite connection is query-only. Demo state has its own SQLite file and can persist at a separately mounted `/var/lib/campulse` path through `CAMPULSE_STATE_DB`.
+
+The interface/API adds per-browser demo-session isolation, idle-session pruning, same-origin checks for POST requests, restrictive browser headers, and generic client-facing server errors. Sessions idle for more than 30 days are removed during periodic cleanup. This is appropriate for a public synthetic-data demonstration. It has no user login or authorization and should run as a single service instance; it is not ready to receive protected campus data or operate equipment. Multi-instance hosting and real operational use require a managed shared database, authentication/roles, a permissioned ingestion service, monitoring, backups and a security review. The full stack, Docker commands and hosting settings are documented in [`tech-stack-and-deployment.md`](tech-stack-and-deployment.md).

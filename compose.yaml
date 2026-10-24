@@ -1,0 +1,15 @@
+services:
+  campulse:
+    build: .
+    ports:
+      - "4173:4173"
+    environment:
+      NODE_ENV: production
+      PORT: "4173"
+      CAMPULSE_STATE_DB: /var/lib/campulse/state.sqlite
+    volumes:
+      - campulse-state:/var/lib/campulse
+    restart: unless-stopped
+
+volumes:
+  campulse-state:
