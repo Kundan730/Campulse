@@ -574,9 +574,17 @@ function renderCampus() {
 }
 
 function renderBuildingPicker() {
-  const picker = $("building-select");
-  if (!picker.options.length) picker.innerHTML = app.data.buildings.map((building) => `<option value="${escapeHtml(building.building_id)}">${escapeHtml(building.building_id)} · ${escapeHtml(building.building_name)}</option>`).join("");
-  picker.value = app.selectedBuilding;
+  const picker = $("building-picker-options");
+  if (picker.dataset.ready !== "true") {
+    picker.innerHTML = app.data.buildings.map((building) => `<button type="button" class="building-option" data-building-select="${escapeHtml(building.building_id)}" aria-pressed="false"><span class="building-option-id">${escapeHtml(building.building_id)}</span><span class="building-option-copy"><strong>${escapeHtml(building.building_name)}</strong><small>Benchmark record</small></span><span class="building-option-check" aria-hidden="true">✓</span></button>`).join("");
+    picker.dataset.ready = "true";
+    $("building-picker-count").textContent = String(app.data.buildings.length).padStart(2, "0");
+  }
+  picker.querySelectorAll("[data-building-select]").forEach((button) => {
+    const selected = button.dataset.buildingSelect === app.selectedBuilding;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
 }
 
 function forecastFor(buildingId, horizon) {
@@ -946,6 +954,7 @@ function bindControls() {
     if (target.hasAttribute("data-brand-home")) { event.preventDefault(); setView("overview"); return; }
     if (target.dataset.campusResource) { app.campusResource = target.dataset.campusResource; renderCampus(); return; }
     if (target.dataset.mapBuilding) { app.selectedBuilding = target.dataset.mapBuilding; renderCampus(); return; }
+    if (target.dataset.buildingSelect) { app.selectedBuilding = target.dataset.buildingSelect; renderBuildingDetail(); return; }
     if (target.dataset.building) {
       app.selectedBuilding = target.dataset.building;
       setView("buildings");
@@ -991,7 +1000,6 @@ function bindControls() {
   $("playback-slider").addEventListener("input", (event) => updateCursor(event.target.value, true));
   $("speed-select").addEventListener("change", () => { if (app.playing) startPlaybackTimer(); });
   $("overview-resource").addEventListener("change", () => renderOverview());
-  $("building-select").addEventListener("change", (event) => { app.selectedBuilding = event.target.value; renderBuildingDetail(); });
   $("building-resource").addEventListener("change", renderBuildingDetail);
   $("impact-resource").addEventListener("change", renderImpact);
   $("waste-class-filter").addEventListener("change", (event) => { app.selectedWasteClass = event.target.value; renderWaste(); });

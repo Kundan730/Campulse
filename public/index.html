@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#1C273B" />
     <meta name="description" content="Campulse helps campus teams explore resource use, data quality, forecasts and operational evidence." />
     <title>Campulse · Resource operations</title>
-    <link rel="stylesheet" href="/styles.css?v=20261024-7" />
-    <script type="module" src="/app.js?v=20261024-9"></script>
+    <link rel="stylesheet" href="/styles.css?v=20261024-8" />
+    <script type="module" src="/app.js?v=20261024-10"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -195,9 +195,14 @@
             </section>
 
             <section class="view" id="view-buildings" aria-labelledby="buildings-title" hidden>
-              <div class="page-heading"><div><div class="eyebrow">BUILDING / DETAIL</div><h1 id="buildings-title">Building detail</h1><p class="page-subtitle">Historical use, available activity, evidence and a six- or twelve-hour forecast.</p></div>
-                <label class="building-picker"><span>Benchmark building</span><select id="building-select" aria-label="Choose benchmark building"></select></label>
-              </div>
+              <div class="page-heading"><div><div class="eyebrow">BUILDING / DETAIL</div><h1 id="buildings-title">Building detail</h1><p class="page-subtitle">Historical use, available activity, evidence and a six- or twelve-hour forecast.</p></div></div>
+              <section class="building-picker-panel" aria-labelledby="building-picker-title">
+                <div class="building-picker-header">
+                  <div><div class="eyebrow">BENCHMARK NAVIGATION</div><h2 id="building-picker-title">Choose a building</h2><p>Jump between the eight benchmark records. Names and readings are synthetic and are not matched to verified campus buildings.</p></div>
+                  <span class="building-picker-count"><strong id="building-picker-count">08</strong><small>buildings</small></span>
+                </div>
+                <div id="building-picker-options" class="building-picker-options" role="group" aria-labelledby="building-picker-title"></div>
+              </section>
               <div id="building-detail-heading" class="building-detail-heading"></div>
               <div class="detail-summary-grid" id="detail-summary"></div>
               <div class="content-grid detail-grid">
